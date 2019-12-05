@@ -220,7 +220,7 @@ void test_with_specified_size(unsigned short port, size_t buffer_size)
 	size_t n_copies = 4 * 1024;
 
 	// telnet command ends lines with \r\n combination
-	// we neet to simulate this behaviour with netcat to match hashes
+	// we need to simulate this behaviour with netcat to match hashes
 	write_to_file("input.txt", n_copies,
 		"1\r\n"
 		"22\r\n"
