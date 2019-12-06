@@ -53,7 +53,6 @@ sudo ln -s /usr/local/bin/cmake /usr/bin/cmake
 ```  
 
 ## To build release configuration
-
 You need to be in project root dir (hash-server) 
 In order to build release configuration do the following:
 ```bash
@@ -61,4 +60,16 @@ mkdir --parents ../hash-server-release
 cd ../hash-server-release
 cmake -DCMAKE_BUILD_TYPE=Release ../hash-server
 cmake --build .
+```
+
+## To build documentation
+Install packages
+```bash
+sudo apt-get install graphviz
+sudo apt-get install doxygen
+```
+To build documentation enter the project directory and run
+```bash
+doxygen Doxyfile
+```
 ```
