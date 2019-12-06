@@ -1,5 +1,5 @@
 # hash-server
-Concurrent implementation of a service which returns SHA256 hashes for every line arrived via TCP (line ends with \n)
+A concurrent implementation of the service which returns SHA256 hashes for every line arrived via TCP (line ends with \n)
 
 ## Implementation Detales
 
