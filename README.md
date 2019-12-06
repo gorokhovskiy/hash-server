@@ -18,4 +18,4 @@ A thread-pool is used with number of working threads equals to boost::thread::ha
 
 The build system is: CMake 3.13.4
 
-The description of the program internals is written using Doxidgen
+The description of the program internals is written using Doxidgen 1.8.11
