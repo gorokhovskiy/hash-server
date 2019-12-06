@@ -15,15 +15,17 @@
 
 using boost::asio::ip::tcp;
 
+//! The class that implements a single TCP session
 class session
 	: public std::enable_shared_from_this<session>
 {
 public:
+	//! Constructor takes newly created socket and allocates buffer of max_buffer_length for incoming TCP chunks
 	session(tcp::socket socket, size_t max_buffer_length)
 		: socket_(std::move(socket))
 	{
 		data_.resize(max_buffer_length);
-		// Avoid allocations, SHA256 has hex represenatation of 64 chars,
+		// Avoid allocations, SHA256 has hex representation of 64 chars,
 		// e.g. two bytes per character plus '\n' plus '\0'
 		// We reserve for at least 256 hashes 
 		output_.reserve(256 * (2 * CryptoPP::SHA256::DIGESTSIZE + 1) + 1);
@@ -117,15 +119,19 @@ private:
 	std::string output_;
 };
 
+//! Accepts new TCP connections on specified port
 class server
 {
 public:
 
-	// It is likely that setting up a larger buffer will increase performance, however
-	// we do not want to increase memory requirements per one TCP connection
+	//! It is likely that setting up a larger buffer will increase performance, however
+	//! we do not want to increase memory requirements per one TCP connection
 	static const size_t default_max_buffer_length = 2 * 1024;
 
-	server(boost::asio::io_service& io_service, unsigned short port, size_t max_buffer_length = default_max_buffer_length)
+	//! Construct server
+	server(boost::asio::io_service& io_service /*< use this io_service */, 
+		unsigned short port /*< listen to this port */, 
+		size_t max_buffer_length = default_max_buffer_length /*< established connections will be using the buffer of this size for incoming messages */)
 		: acceptor_(io_service, tcp::endpoint(tcp::v4(), port))
 		, socket_(io_service)
 		, max_buffer_length_(max_buffer_length)
@@ -153,24 +159,27 @@ private:
 	size_t max_buffer_length_{default_max_buffer_length};
 };
 
+//! Class that contains all required functionality (in main()).
+//! It can also be instantiated several times for unit tests 
 struct hash_service
 {
-	hash_service(unsigned short port, size_t buffer_length)
+	//! Constructor which takes port number and size of receiving buffer (in bytes)
+	hash_service(unsigned short port /*< listen to */, size_t buffer_length /*< receive TCP stream data by the chunks of this size */)
 		: s_{ io_service_, port, buffer_length }
 	{
 	}
 
+    //! Creates thread-pool and starts listening to required port. 
+    //! Size of the thread-pool is determined by boost::thread::hardware_concurrency()
 	void run() {
 		// std::cerr << "Hardware concurrency: " << boost::thread::hardware_concurrency() << std::endl;
 		for (unsigned i = 0; i < boost::thread::hardware_concurrency(); ++i)
 			tg_.create_thread(boost::bind(&boost::asio::io_service::run, &io_service_));
 	}
 
-	void join()
-	{
-		tg_.join_all();
-	}
-
+	//! Stop the service. After stopping we need to wait until all the threads in the thread-pool are exited. 
+	//! This can be done by calling join().
+	//! Overall sequence must be: 1) interrupt() 2) join()
 	void interrupt()
 	{
 		// std::cerr << "Asio stop" << std::endl;
@@ -179,10 +188,16 @@ struct hash_service
 		// tg_.interrupt_all();
 	}
 
+	//! Block the calling thread until all the treads in thread-pool are exited
+	void join()
+	{
+		tg_.join_all();
+	}
+
+private:
 	boost::asio::io_service io_service_;
 	server s_;
 	boost::thread_group tg_;
-
 };
 
 
