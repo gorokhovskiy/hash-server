@@ -12,8 +12,11 @@
 #include <mutex>
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
+#include <boost/program_options.hpp>
+#include <boost/optional/optional_io.hpp>
 
 using boost::asio::ip::tcp;
+namespace po = boost::program_options;
 
 //! The class that implements a single TCP session
 class session
@@ -23,6 +26,7 @@ public:
 	//! Constructor takes newly created socket and allocates buffer of max_buffer_length for incoming TCP chunks
 	session(tcp::socket socket, size_t max_buffer_length)
 		: socket_(std::move(socket))
+		, max_buffer_length_(max_buffer_length)
 	{
 		data_.resize(max_buffer_length);
 		// Avoid allocations, SHA256 has hex representation of 64 chars,
@@ -46,7 +50,7 @@ private:
 			[this, self](boost::system::error_code ec, std::size_t length)
 			{
 				std::lock_guard<std::mutex> lock(m_);
-				assert(data_.size() == max_buffer_length);
+				assert(data_.size() == max_buffer_length_);
 				byte* buffer_reminder = &data_[0];
 				byte* buffer_end = buffer_reminder + length; // to form an STL style range
 				// std::cerr << "Arrived " << length << std::endl;
@@ -112,6 +116,8 @@ private:
 
 	std::mutex m_;
 	tcp::socket socket_;
+	size_t max_buffer_length_ = 0;
+
 	std::vector<byte> data_;
 	CryptoPP::SHA256 hash_;
 	byte digest_[CryptoPP::SHA256::DIGESTSIZE];
@@ -291,19 +297,51 @@ int main(int argc, char* argv[])
 {
 	try
 	{
-		unsigned short port = 59999;
-		if (argc != 2)
+		unsigned short default_port = 59999;
+
+		po::options_description desc("Usage: hash-server [options]\nAll options:\n");
+		desc.add_options()
+			("port,p", "serve at the specified TCP port number, must be in the range 1024-65535")
+			("help,h", "produce help message");
+
+		po::variables_map vm;
+		po::store(po::parse_command_line(argc, argv, desc), vm);
+		po::notify(vm);
+
+		if (vm.count("help")) 
 		{
-			std::cerr << "Usage: hash-server <port>\nBy default the port is " << port << std::endl;
-		}
-		else 
-		{
-			port = std::atoi(argv[1]);
+			std::cout << desc << "\n";
+			return 1;
 		}
 
-		hash_service server_instance(port, /* buffer_length = */ 2 * 1024);
-		server_instance.run();
-		server_instance.join();
+		boost::optional<int> port;
+		if (0 == vm.count("port"))
+		{
+			port = default_port;
+		}
+		else
+		{
+			try
+			{
+				port = vm["port"].as<int>();
+				if (1024 <= port.get() && port.get() <= 65535)
+				{
+					throw std::out_of_range("Port must be in the range 1024-65535");
+				}
+			}
+			catch (const std::exception& e)
+			{
+				std::cout << "Invalid port number: " << vm["port"].as<std::string>() << " " << e.what() << std::endl;
+			}
+		}
+
+		if (port) 
+		{
+			std::cout << "Port was set to " << port.get() << ".\nTo get help on program options use: hash-server -h\n";
+			hash_service server_instance(port.get(), /* buffer_length = */ 2 * 1024);
+			server_instance.run();
+			server_instance.join();
+		}
 	}
 	catch (std::exception & e)
 	{
